@@ -1,0 +1,495 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// NOTE: Enums removed for SQLite compatibility.
+// When switching to PostgreSQL, restore enum definitions and change String fields back.
+// ContractStatus: DRAFT_VALIDATION | IMPORT_PLANNING | IMPORT_IN_TRANSIT | IMPORT_UNDER_CLEARANCE | CLEARANCE_COMPLETED | WAREHOUSE_INWARD_PENDING | DELIVERED | FUNDED_INVENTORY | FUNDING_RELEASED | ACTIVE_INVENTORY
+// InventoryType: IMPORT | LOCAL_PURCHASE | LOCAL_SALE | EXPORT | STO_INWARD | STO_OUTWARD
+// ChargeCategory: SERVICE_CHARGE | GOVERNMENT_CHARGE | SHIPPING_LINE_CHARGE
+// CargoType: CONTAINER | BULK | BREAK_BULK | LIQUID_BULK
+// ExpenseType: TRANSPORTATION | LOADING | UNLOADING | LABOUR | STORAGE | INTEREST | CLEARING_FORWARDING | CUSTOMS_DUTY | OTHER
+// ApprovalStatus: PENDING | APPROVED | REJECTED
+// UserRole: ADMIN | CMT_TEAM | WAREHOUSE_MANAGER | FINANCE | VIEWER
+
+// ─── USERS ────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String
+  name          String
+  role          String    @default("VIEWER")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  contracts     ImportContract[]
+  approvals     ApprovalWorkflow[]
+  auditLogs     AuditLog[]
+}
+
+// ─── PHASE 1: IMPORT CONTRACT ─────────────────────────────────────────────────
+
+model ImportContract {
+  id                  String          @id @default(uuid())
+  importRefNumber     String          @unique
+  contractId          String          @unique
+  status              String          @default("DRAFT_VALIDATION")
+
+  // Contract Details
+  material            String
+  supplier            String
+  quantity            Float
+  unit                String          @default("MT")
+  price               Float
+  currency            String          @default("USD")
+  incoterms           String
+
+  // Additional fields from Excel data
+  entityName          String?
+  broker              String?
+  invoicingParty      String?
+  grade               String?
+  origin              String?
+  sellerContractNo    String?
+  sellerContractDate  DateTime?
+  paymentTerm         String?
+  periodFrom          DateTime?
+  periodTo            DateTime?
+  invoiceNo           String?
+  invoiceDate         DateTime?
+  invoiceAmount       Float?
+  boeExcRate          Float?
+  cargoValueINR       Float?
+  packing             String?
+  bagSize             Float?
+  numberOfBags        Int?
+  fcl                 Int?
+  shippingLine        String?
+  freeDaysUpto        DateTime?
+  targetDelivery      DateTime?
+  clearanceDate       DateTime?
+
+  // OCR extracted fields
+  ocrExtracted        Boolean         @default(false)
+  ocrRawData          String?
+
+  // File references
+  contractFileUrl     String?
+  blFileUrl           String?
+
+  // BL Details
+  blNumber            String?
+  blQuantity          Float?
+  blMaterial          String?
+  blPrice             Float?
+  blValidated         Boolean         @default(false)
+  blMismatch          Boolean         @default(false)
+
+  // Cargo & Shipping
+  cargoType           String?
+  loadingPort         String?
+  destinationPort     String?
+  vesselName          String?
+  etd                 DateTime?
+  eta                 DateTime?
+
+  // Relations
+  createdById         String
+  createdBy           User            @relation(fields: [createdById], references: [id])
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  shipments           Shipment[]
+  expenses            Expense[]
+  inventoryItems      InventoryItem[]
+  approvals           ApprovalWorkflow[]
+  auditLogs           AuditLog[]
+
+  @@index([status])
+  @@index([blNumber])
+  @@index([importRefNumber])
+}
+
+// ─── PHASE 2: SHIPMENT LIFECYCLE ──────────────────────────────────────────────
+
+model Shipment {
+  id                  String          @id @default(uuid())
+  contractId          String
+  contract            ImportContract  @relation(fields: [contractId], references: [id])
+
+  blNumber            String
+  vesselName          String?
+  cargoType           String
+
+  departureDate       DateTime?
+  arrivalDate         DateTime?
+  boeFilingDate       DateTime?
+  clearanceDate       DateTime?
+
+  loadingPort         String
+  destinationPort     String
+
+  status              String          @default("IMPORT_IN_TRANSIT")
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([blNumber])
+  @@index([status])
+}
+
+// ─── PHASE 3: CUSTOMS & EXPENSES ──────────────────────────────────────────────
+
+model Expense {
+  id                  String          @id @default(uuid())
+  contractId          String
+  contract            ImportContract  @relation(fields: [contractId], references: [id])
+
+  blNumber            String?
+  batchNumber         String?
+  inventoryItemId     String?
+  inventoryItem       InventoryItem?  @relation(fields: [inventoryItemId], references: [id])
+
+  category            String
+  expenseType         String
+  description         String
+  amount              Float
+  currency            String          @default("INR")
+  vendor              String?
+  invoiceNumber       String?
+  invoiceDate         DateTime?
+
+  cargoType           String?
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([contractId])
+  @@index([blNumber])
+  @@index([batchNumber])
+}
+
+// ─── PHASE 4 & 5: INVENTORY ──────────────────────────────────────────────────
+
+model InventoryItem {
+  id                  String          @id @default(uuid())
+  contractId          String?
+  contract            ImportContract? @relation(fields: [contractId], references: [id])
+
+  inventoryType       String
+  material            String
+  quantity            Float
+  unit                String          @default("MT")
+
+  blNumber            String?
+  batchNumber         String?
+
+  // Location
+  warehouseId         String?
+  warehouse           Warehouse?      @relation(fields: [warehouseId], references: [id])
+  plantId             String?
+  plant               Plant?          @relation(fields: [plantId], references: [id])
+
+  // Funded Inventory (Phase 5)
+  isFunded            Boolean         @default(false)
+  isDeadInventory     Boolean         @default(false)
+  fundingAgency       String?
+  fundingStartDate    DateTime?
+  fundingReleaseDate  DateTime?
+  fundingAmount       Float?
+  interestAccrued     Float           @default(0)
+  storageCost         Float           @default(0)
+  labourCost          Float           @default(0)
+  ownershipTransferred Boolean        @default(false)
+
+  // Blocking flags
+  blockedForSale      Boolean         @default(false)
+  blockedForTransfer  Boolean         @default(false)
+  blockedForConsumption Boolean       @default(false)
+
+  status              String          @default("ACTIVE_INVENTORY")
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  expenses            Expense[]
+  movements           StockMovement[]
+  warehouseActivities WarehouseActivity[]
+  auditLogs           AuditLog[]
+
+  @@index([blNumber])
+  @@index([batchNumber])
+  @@index([isFunded])
+  @@index([status])
+}
+
+model StockMovement {
+  id                  String          @id @default(uuid())
+  inventoryItemId     String
+  inventoryItem       InventoryItem   @relation(fields: [inventoryItemId], references: [id])
+
+  fromLocation        String
+  toLocation          String
+  quantity            Float
+  movementDate        DateTime        @default(now())
+
+  // Movement expenses
+  transportCost       Float           @default(0)
+  loadingCost         Float           @default(0)
+  unloadingCost       Float           @default(0)
+  labourCost          Float           @default(0)
+
+  remarks             String?
+
+  createdAt           DateTime        @default(now())
+}
+
+// ─── PHASE 6: WAREHOUSE & PLANT ───────────────────────────────────────────────
+
+model Warehouse {
+  id                  String          @id @default(uuid())
+  name                String
+  code                String          @unique
+  address             String?
+  city                String?
+  state               String?
+  capacity            Float?
+  capacityUnit        String          @default("MT")
+
+  // From Warehouse Agreement Excel
+  plantCode           String?
+  entity              String?
+  location            String?
+  executionDate       DateTime?
+  expiryDate          DateTime?
+  commencementDate    DateTime?
+  storageCharges      String?
+  labourCharges       String?
+  serviceProvider     String?
+  notary              String?
+  agreementStatus     String?
+
+  inventoryItems      InventoryItem[]
+  activities          WarehouseActivity[]
+  deliveryOrders      DeliveryOrder[]
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+}
+
+model Plant {
+  id                  String          @id @default(uuid())
+  name                String
+  code                String          @unique
+  address             String?
+  city                String?
+  state               String?
+
+  inventoryItems      InventoryItem[]
+  deliveryOrders      DeliveryOrder[]
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+}
+
+model WarehouseActivity {
+  id                  String          @id @default(uuid())
+  warehouseId         String
+  warehouse           Warehouse       @relation(fields: [warehouseId], references: [id])
+  inventoryItemId     String
+  inventoryItem       InventoryItem   @relation(fields: [inventoryItemId], references: [id])
+
+  activityType        String
+  description         String?
+  quantity            Float?
+  expenseAmount       Float           @default(0)
+
+  blNumber            String?
+  batchNumber         String?
+
+  activityDate        DateTime        @default(now())
+  createdAt           DateTime        @default(now())
+}
+
+model DeliveryOrder {
+  id                  String          @id @default(uuid())
+  orderNumber         String          @unique
+  warehouseId         String?
+  warehouse           Warehouse?      @relation(fields: [warehouseId], references: [id])
+  plantId             String?
+  plant               Plant?          @relation(fields: [plantId], references: [id])
+
+  material            String
+  quantity            Float
+  unit                String          @default("MT")
+  customerName        String?
+  deliveryDate        DateTime?
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+}
+
+// ─── APPROVAL WORKFLOW ────────────────────────────────────────────────────────
+
+model ApprovalWorkflow {
+  id                  String          @id @default(uuid())
+  contractId          String
+  contract            ImportContract  @relation(fields: [contractId], references: [id])
+
+  reason              String
+  details             String?
+  status              String          @default("PENDING")
+
+  approvedById        String?
+  approvedBy          User?           @relation(fields: [approvedById], references: [id])
+  approvedAt          DateTime?
+  remarks             String?
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([status])
+  @@index([contractId])
+}
+
+// ─── AUDIT LOG ────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id                  String          @id @default(uuid())
+  entityType          String
+  entityId            String
+  action              String
+  previousData        String?
+  newData             String?
+  description         String?
+
+  contractId          String?
+  contract            ImportContract? @relation(fields: [contractId], references: [id])
+  inventoryItemId     String?
+  inventoryItem       InventoryItem?  @relation(fields: [inventoryItemId], references: [id])
+
+  performedById       String
+  performedBy         User            @relation(fields: [performedById], references: [id])
+
+  createdAt           DateTime        @default(now())
+
+  @@index([entityType, entityId])
+  @@index([contractId])
+  @@index([createdAt])
+}
+
+// ─── EXPORT CONTRACT ──────────────────────────────────────────────────────────
+
+model ExportContract {
+  id                  String          @id @default(uuid())
+  contractNo          String?
+  contractDate        DateTime?
+  status              String          @default("IN_PROGRESS")
+  type                String?         // EX or RE-EX
+
+  // LC Details
+  lcNo               String?
+  lcDate              DateTime?
+  lcShipmentDate      DateTime?
+
+  // Invoice/PI
+  piNo               String?
+  proformaInvoice     String?
+  sapInvoiceNo        String?
+  sapInvoiceDate      DateTime?
+
+  // Buyer
+  buyer               String?
+  notifyParty         String?
+
+  // Commodity
+  commodity           String?
+  commodityGroup      String?
+  grade               String?
+  hsnCode             String?
+  incoTerms           String?
+  lot                 String?
+  soNo               String?
+
+  // Quantity
+  batch               String?
+  materialCode        String?
+  plantCode           String?
+  fcl                 Int?
+  packingSize         String?
+  numberOfBags        Int?
+  quantity            Float?
+  unitPrice           Float?
+  unitPriceINR        Float?
+  invoiceValueUSD     Float?
+  invoiceValueINR     Float?
+  paymentTerm         String?
+
+  // Shipping
+  blNumber            String?
+  blDate              DateTime?
+  vesselDetails       String?
+  shippingLine        String?
+  fromLocation        String?
+  loadingPort         String?
+  finalDestination    String?
+  destinationCountry  String?
+
+  // Customs
+  sbNo               String?
+  sbDate              DateTime?
+  leoDate            DateTime?
+  sbExchangeRate      Float?
+  freightInsuranceINR Float?
+  freightInsuranceUSD Float?
+  insuranceUSD        Float?
+  sbFobValueUSD       Float?
+  sbFobValueINR       Float?
+
+  // Incentives
+  rodtepAmountINR     Float?
+  drawbackAmountINR   Float?
+
+  // Realization
+  bankRealizationNo   String?
+  brcIssueDate        DateTime?
+  realizedAmount      Float?
+  fobRealizedForeign  Float?
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  exportExpenses      ExportExpense[]
+
+  @@index([contractNo])
+  @@index([blNumber])
+  @@index([status])
+}
+
+model ExportExpense {
+  id                  String          @id @default(uuid())
+  exportContractId    String
+  exportContract      ExportContract  @relation(fields: [exportContractId], references: [id])
+
+  proformaInvoice     String?
+  category            String          // CHA, SHIPPING_LINE, TRANSPORTATION, W_Q, FUMIGATION, CFS, COO_SAFTA
+  vendorName          String?
+  billNo              String?
+  billDate            DateTime?
+  amount              Float           @default(0)
+  gstAmount           Float           @default(0)
+  remark              String?
+
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  @@index([exportContractId])
+  @@index([category])
+}

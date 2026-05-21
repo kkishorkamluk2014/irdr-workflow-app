@@ -1,0 +1,14 @@
+{
+  "appId": "com.irdr.workflow",
+  "appName": "IRDR Workflow",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "StatusBar": {
+      "backgroundColor": "#1a56db",
+      "style": "LIGHT"
+    }
+  }
+}
