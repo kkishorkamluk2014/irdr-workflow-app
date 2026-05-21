@@ -54,7 +54,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
             take: limit,
             orderBy: { updatedAt: "desc" },
           })
-          .then((items) => items.map((i) => ({ ...i, _type: "contract" }))),
+          .then((items: any[]) => items.map((i: any) => ({ ...i, _type: "contract" }))),
       );
     }
 
@@ -89,7 +89,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
             take: limit,
             orderBy: { updatedAt: "desc" },
           })
-          .then((items) => items.map((i) => ({ ...i, _type: "export" }))),
+          .then((items: any[]) => items.map((i: any) => ({ ...i, _type: "export" }))),
       );
     }
 
@@ -120,7 +120,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
             take: limit,
             orderBy: { name: "asc" },
           })
-          .then((items) => items.map((i) => ({ ...i, _type: "warehouse" }))),
+          .then((items: any[]) => items.map((i: any) => ({ ...i, _type: "warehouse" }))),
       );
     }
 
@@ -151,7 +151,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
             take: limit,
             orderBy: { createdAt: "desc" },
           })
-          .then((items) => items.map((i) => ({ ...i, _type: "expense" }))),
+          .then((items: any[]) => items.map((i: any) => ({ ...i, _type: "expense" }))),
       );
     }
 
@@ -179,7 +179,7 @@ router.get("/", async (req: AuthRequest, res: Response) => {
             take: limit,
             orderBy: { updatedAt: "desc" },
           })
-          .then((items) => items.map((i) => ({ ...i, _type: "shipment" }))),
+          .then((items: any[]) => items.map((i: any) => ({ ...i, _type: "shipment" }))),
       );
     }
 
