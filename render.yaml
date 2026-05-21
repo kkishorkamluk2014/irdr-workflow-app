@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: free
     buildCommand: |
-      npm install && cd frontend && npx tsc && npx vite build && cd ../backend && npx prisma generate && npx tsc
+      cd frontend && npm install && npx tsc && npx vite build && cd ../backend && npm install && npx prisma generate && npx tsc
     startCommand: |
       cd backend && mkdir -p data && npx prisma migrate deploy && npx tsx prisma/seed.ts && node dist/index.js
     envVars:
