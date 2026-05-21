@@ -13,12 +13,8 @@ services:
       - key: NODE_VERSION
         value: "20"
       - key: DATABASE_URL
-        value: file:/opt/render/project/data/irdr.db
+        value: file:./data/irdr.db
       - key: JWT_SECRET
         generateValue: true
       - key: PORT
         value: "10000"
-    disk:
-      name: irdr-data
-      mountPath: /opt/render/project/data
-      sizeGB: 1
