@@ -94,27 +94,27 @@ export default function GlobalSearch() {
     };
   }, [query, doSearch]);
 
-  // Navigate to result
+  // Navigate to result — pass highlight params so the target page can focus the row
   const navigateToResult = (result: SearchResult) => {
     setIsOpen(false);
-    const cfg = CATEGORY_CONFIG[result._type];
-    if (!cfg) return;
+    const q = encodeURIComponent(query);
+    const id = result.id;
 
     switch (result._type) {
       case "contract":
-        navigate(`/contracts/${result.id}`);
+        navigate(`/contracts/${id}`);
         break;
       case "export":
-        navigate(`/contracts`);
+        navigate(`/contracts?highlight=${id}&q=${q}`);
         break;
       case "warehouse":
-        navigate(`/warehouse`);
+        navigate(`/warehouse?highlight=${id}&q=${q}`);
         break;
       case "expense":
-        navigate(`/expenses`);
+        navigate(`/expenses?highlight=${id}&q=${q}`);
         break;
       case "shipment":
-        navigate(`/shipments`);
+        navigate(`/shipments?highlight=${id}&q=${q}`);
         break;
     }
   };

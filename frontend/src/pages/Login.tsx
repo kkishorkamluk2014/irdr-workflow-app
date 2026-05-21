@@ -23,7 +23,7 @@ export default function Login() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1>ETC Agro Processing</h1>
+        <h1>ETGworld</h1>
         <p>Import, Funding & Inventory Workflow System</p>
         {error && (
           <p style={{ color: "var(--danger)", marginBottom: "1rem" }}>

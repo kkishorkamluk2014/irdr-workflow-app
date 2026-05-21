@@ -137,11 +137,30 @@ model Shipment {
 
   status              String          @default("IMPORT_IN_TRANSIT")
 
+  customFields        String?         // JSON blob for user-defined columns
+
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
   @@index([blNumber])
   @@index([status])
+}
+
+// ─── CUSTOM FIELD DEFINITIONS ─────────────────────────────────────────────────
+
+model FieldDefinition {
+  id          String   @id @default(uuid())
+  entityType  String   // SHIPMENT | EXPENSE
+  fieldName   String   // internal camelCase key
+  fieldLabel  String   // display label
+  fieldType   String   // TEXT | NUMBER | DATE | BOOLEAN
+  required    Boolean  @default(false)
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@unique([entityType, fieldName])
+  @@index([entityType])
 }
 
 // ─── PHASE 3: CUSTOMS & EXPENSES ──────────────────────────────────────────────
@@ -166,6 +185,8 @@ model Expense {
   invoiceDate         DateTime?
 
   cargoType           String?
+
+  customFields        String?         // JSON blob for user-defined columns
 
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt

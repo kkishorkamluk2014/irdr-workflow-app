@@ -12,6 +12,7 @@ import { dashboardRoutes } from "./routes/dashboard";
 import { searchRoutes } from "./routes/search";
 import { authRoutes } from "./routes/auth";
 import { authMiddleware } from "./middleware/auth";
+import fieldDefinitionRoutes from "./routes/fieldDefinitions";
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use("/api/warehouse", authMiddleware, warehouseRoutes);
 app.use("/api/approvals", authMiddleware, approvalRoutes);
 app.use("/api/dashboard", authMiddleware, dashboardRoutes);
 app.use("/api/search", authMiddleware, searchRoutes);
+app.use("/api/field-definitions", authMiddleware, fieldDefinitionRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

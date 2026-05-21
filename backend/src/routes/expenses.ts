@@ -44,6 +44,8 @@ router.post("/", async (req: AuthRequest, res: Response) => {
       cargoType,
     } = req.body;
 
+    const { customFields } = req.body;
+
     const expense = await prisma.expense.create({
       data: {
         contractId,
@@ -59,6 +61,7 @@ router.post("/", async (req: AuthRequest, res: Response) => {
         invoiceNumber,
         invoiceDate: invoiceDate ? new Date(invoiceDate) : null,
         cargoType,
+        customFields: customFields ? JSON.stringify(customFields) : null,
       },
     });
 

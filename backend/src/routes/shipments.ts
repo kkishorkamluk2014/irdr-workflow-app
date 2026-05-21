@@ -1,11 +1,11 @@
-import { Router, Response } from 'express';
-import prisma from '../models/prisma';
-import { AuthRequest } from '../middleware/auth';
+import { Router, Response } from "express";
+import prisma from "../models/prisma";
+import { AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
 // List shipments
-router.get('/', async (req: AuthRequest, res: Response) => {
+router.get("/", async (req: AuthRequest, res: Response) => {
   try {
     const { contractId, status } = req.query;
     const where: any = {};
@@ -14,19 +14,30 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 
     const shipments = await prisma.shipment.findMany({
       where,
-      include: { contract: { select: { importRefNumber: true, material: true } } },
-      orderBy: { createdAt: 'desc' },
+      include: {
+        contract: { select: { importRefNumber: true, material: true } },
+      },
+      orderBy: { createdAt: "desc" },
     });
     res.json(shipments);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch shipments' });
+    res.status(500).json({ error: "Failed to fetch shipments" });
   }
 });
 
 // Create shipment
-router.post('/', async (req: AuthRequest, res: Response) => {
+router.post("/", async (req: AuthRequest, res: Response) => {
   try {
-    const { contractId, blNumber, vesselName, cargoType, loadingPort, destinationPort, departureDate } = req.body;
+    const {
+      contractId,
+      blNumber,
+      vesselName,
+      cargoType,
+      loadingPort,
+      destinationPort,
+      departureDate,
+      customFields,
+    } = req.body;
 
     const shipment = await prisma.shipment.create({
       data: {
@@ -37,24 +48,25 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         loadingPort,
         destinationPort,
         departureDate: departureDate ? new Date(departureDate) : null,
-        status: 'IMPORT_IN_TRANSIT',
+        status: "IMPORT_IN_TRANSIT",
+        customFields: customFields ? JSON.stringify(customFields) : null,
       },
     });
 
     // Update contract status
     await prisma.importContract.update({
       where: { id: contractId },
-      data: { status: 'IMPORT_IN_TRANSIT' },
+      data: { status: "IMPORT_IN_TRANSIT" },
     });
 
     res.status(201).json(shipment);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to create shipment' });
+    res.status(500).json({ error: "Failed to create shipment" });
   }
 });
 
 // Update shipment - arrival / BOE filing
-router.patch('/:id', async (req: AuthRequest, res: Response) => {
+router.patch("/:id", async (req: AuthRequest, res: Response) => {
   try {
     const { arrivalDate, boeFilingDate, clearanceDate, status } = req.body;
     const data: any = {};
@@ -79,7 +91,7 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
 
     res.json(shipment);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to update shipment' });
+    res.status(500).json({ error: "Failed to update shipment" });
   }
 });
 

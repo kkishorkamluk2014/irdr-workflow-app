@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import api from '../services/api';
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import api from "../services/api";
 
 interface Contract {
   id: string;
@@ -20,19 +20,40 @@ interface Contract {
 export default function Contracts() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [showModal, setShowModal] = useState(false);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
 
-  useEffect(() => { loadContracts(); }, []);
+  useEffect(() => {
+    loadContracts();
+  }, []);
 
   const loadContracts = () => {
-    api.get('/contracts').then(res => setContracts(res.data.contracts)).catch(() => {});
+    api
+      .get("/contracts")
+      .then((res) => {
+        setContracts(res.data.contracts);
+        const hid = searchParams.get("highlight");
+        if (hid) {
+          setHighlightId(hid);
+          setTimeout(() => {
+            rowRefs.current[hid]?.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+            setTimeout(() => setHighlightId(null), 3000);
+          }, 200);
+        }
+      })
+      .catch(() => {});
   };
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const body = Object.fromEntries(form.entries());
-    await api.post('/contracts', body);
+    await api.post("/contracts", body);
     setShowModal(false);
     loadContracts();
   };
@@ -41,7 +62,9 @@ export default function Contracts() {
     <div>
       <div className="page-header">
         <h1>Import Contracts</h1>
-        <button className="btn btn-primary" onClick={() => setShowModal(true)}>+ New Contract</button>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+          + New Contract
+        </button>
       </div>
 
       <div className="card table-container">
@@ -61,17 +84,33 @@ export default function Contracts() {
             </tr>
           </thead>
           <tbody>
-            {contracts.map(c => (
-              <tr key={c.id} onClick={() => navigate(`/contracts/${c.id}`)} style={{ cursor: 'pointer' }}>
-                <td><strong>{c.importRefNumber}</strong></td>
+            {contracts.map((c) => (
+              <tr
+                key={c.id}
+                ref={(el) => {
+                  rowRefs.current[c.id] = el;
+                }}
+                className={highlightId === c.id ? "row-highlighted" : ""}
+                onClick={() => navigate(`/contracts/${c.id}`)}
+                style={{ cursor: "pointer" }}
+              >
+                <td>
+                  <strong>{c.importRefNumber}</strong>
+                </td>
                 <td>{c.contractId}</td>
                 <td>{c.material}</td>
                 <td>{c.supplier}</td>
                 <td>{c.quantity}</td>
-                <td>{c.currency} {c.price}</td>
+                <td>
+                  {c.currency} {c.price}
+                </td>
                 <td>{c.incoterms}</td>
-                <td>{c.blNumber || '—'}</td>
-                <td><span className={`badge badge-${statusClass(c.status)}`}>{formatStatus(c.status)}</span></td>
+                <td>{c.blNumber || "—"}</td>
+                <td>
+                  <span className={`badge badge-${statusClass(c.status)}`}>
+                    {formatStatus(c.status)}
+                  </span>
+                </td>
                 <td>{new Date(c.createdAt).toLocaleDateString()}</td>
               </tr>
             ))}
@@ -81,7 +120,7 @@ export default function Contracts() {
 
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2>Upload Import Contract</h2>
             <form onSubmit={handleCreate}>
               <div className="form-grid">
@@ -99,7 +138,11 @@ export default function Contracts() {
                 </div>
                 <div className="form-group">
                   <label>Unit</label>
-                  <select name="unit"><option>MT</option><option>KG</option><option>Tons</option></select>
+                  <select name="unit">
+                    <option>MT</option>
+                    <option>KG</option>
+                    <option>Tons</option>
+                  </select>
                 </div>
                 <div className="form-group">
                   <label>Price *</label>
@@ -107,22 +150,34 @@ export default function Contracts() {
                 </div>
                 <div className="form-group">
                   <label>Currency</label>
-                  <select name="currency"><option>USD</option><option>INR</option><option>EUR</option></select>
+                  <select name="currency">
+                    <option>USD</option>
+                    <option>INR</option>
+                    <option>EUR</option>
+                  </select>
                 </div>
                 <div className="form-group">
                   <label>Incoterms *</label>
                   <select name="incoterms" required>
                     <option value="">Select</option>
-                    <option>FOB</option><option>CIF</option><option>CFR</option><option>EXW</option>
-                    <option>DDP</option><option>DAP</option><option>FCA</option><option>CPT</option>
+                    <option>FOB</option>
+                    <option>CIF</option>
+                    <option>CFR</option>
+                    <option>EXW</option>
+                    <option>DDP</option>
+                    <option>DAP</option>
+                    <option>FCA</option>
+                    <option>CPT</option>
                   </select>
                 </div>
                 <div className="form-group">
                   <label>Cargo Type</label>
                   <select name="cargoType">
                     <option value="">Select</option>
-                    <option value="CONTAINER">Container</option><option value="BULK">Bulk</option>
-                    <option value="BREAK_BULK">Break Bulk</option><option value="LIQUID_BULK">Liquid Bulk</option>
+                    <option value="CONTAINER">Container</option>
+                    <option value="BULK">Bulk</option>
+                    <option value="BREAK_BULK">Break Bulk</option>
+                    <option value="LIQUID_BULK">Liquid Bulk</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -134,9 +189,19 @@ export default function Contracts() {
                   <input name="destinationPort" />
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                <button type="submit" className="btn btn-primary">Create Contract</button>
-                <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>Cancel</button>
+              <div
+                style={{ display: "flex", gap: "1rem", marginTop: "1.5rem" }}
+              >
+                <button type="submit" className="btn btn-primary">
+                  Create Contract
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
@@ -146,8 +211,21 @@ export default function Contracts() {
   );
 }
 
-function formatStatus(s: string) { return s.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()); }
+function formatStatus(s: string) {
+  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 function statusClass(s: string): string {
-  const map: Record<string, string> = { DRAFT_VALIDATION: 'draft', IMPORT_PLANNING: 'planning', IMPORT_IN_TRANSIT: 'transit', IMPORT_UNDER_CLEARANCE: 'clearance', CLEARANCE_COMPLETED: 'completed', WAREHOUSE_INWARD_PENDING: 'pending', DELIVERED: 'delivered', FUNDED_INVENTORY: 'funded', FUNDING_RELEASED: 'released', ACTIVE_INVENTORY: 'active' };
-  return map[s] || 'draft';
+  const map: Record<string, string> = {
+    DRAFT_VALIDATION: "draft",
+    IMPORT_PLANNING: "planning",
+    IMPORT_IN_TRANSIT: "transit",
+    IMPORT_UNDER_CLEARANCE: "clearance",
+    CLEARANCE_COMPLETED: "completed",
+    WAREHOUSE_INWARD_PENDING: "pending",
+    DELIVERED: "delivered",
+    FUNDED_INVENTORY: "funded",
+    FUNDING_RELEASED: "released",
+    ACTIVE_INVENTORY: "active",
+  };
+  return map[s] || "draft";
 }

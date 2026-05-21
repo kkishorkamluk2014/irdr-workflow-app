@@ -26,7 +26,7 @@ export default function Layout() {
           {sidebarOpen ? "✕" : "☰"}
         </button>
         <GlobalSearch />
-        <h2>ETC Agro Processing</h2>
+        <h2>ETGworld</h2>
       </header>
 
       {/* Sidebar Overlay (mobile) */}
@@ -38,7 +38,7 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className={`sidebar ${sidebarOpen ? "open" : ""}`}>
         <div className="sidebar-logo">
-          <h2>ETC Agro Processing</h2>
+          <h2>ETGworld</h2>
           <p>Import, Funding & Inventory</p>
         </div>
         <div className="sidebar-search">

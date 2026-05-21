@@ -12,6 +12,30 @@
   --sidebar-width: 260px;
 }
 
+/* ── Search highlight row animation ─────────────────────────── */
+@keyframes rowHighlight {
+  0% {
+    background-color: #fef08a;
+    box-shadow: 0 0 0 3px #facc15;
+  }
+  60% {
+    background-color: #fef9c3;
+    box-shadow: 0 0 0 3px #fde047;
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+tr.row-highlighted {
+  animation: rowHighlight 2.5s ease forwards;
+}
+
+tr.row-highlighted td {
+  position: relative;
+}
+
 * {
   margin: 0;
   padding: 0;
