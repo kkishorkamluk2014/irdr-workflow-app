@@ -6,10 +6,12 @@ services:
     buildCommand: |
       npm install && cd frontend && npm run build && cd ../backend && npx prisma generate && npm run build
     startCommand: |
-      cd backend && npx prisma migrate deploy && node dist/index.js
+      cd backend && npx prisma migrate deploy && npx tsx prisma/seed.ts && node dist/index.js
     envVars:
       - key: NODE_ENV
         value: production
+      - key: NODE_VERSION
+        value: "20"
       - key: DATABASE_URL
         value: file:/opt/render/project/data/irdr.db
       - key: JWT_SECRET
